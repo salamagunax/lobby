@@ -3,6 +3,7 @@
 -- =============================================
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
@@ -37,7 +38,8 @@ ScreenGui.Parent = PlayerGui
 
 local CounterFrame = Instance.new("Frame")
 CounterFrame.Size = UDim2.new(0, 220, 0, 55)
-CounterFrame.Position = UDim2.new(0.5, -110, 0, 10)
+-- เปลี่ยนมุมเริ่มต้นมาไว้ที่มุมขวาบน (ปรับตำแหน่งตามชอบได้ตรง Position นี้ครับ)
+CounterFrame.Position = UDim2.new(1, -235, 0, 15)
 CounterFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 26)
 CounterFrame.BorderSizePixel = 0
 CounterFrame.Parent = ScreenGui
@@ -57,6 +59,39 @@ TitleLabel.TextColor3 = Color3.fromRGB(150, 150, 180)
 TitleLabel.TextSize = 11
 TitleLabel.Font = Enum.Font.GothamBold
 TitleLabel.Parent = CounterFrame
+
+-- เพิ่มระบบลาก UI (Draggable) ผ่าน TitleLabel
+local dragging, dragInput, dragStart, startPos
+TitleLabel.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = CounterFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+TitleLabel.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        CounterFrame.Position = UDim2.new(
+            startPos.X.Scale, 
+            startPos.X.Offset + delta.X, 
+            startPos.Y.Scale, 
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
 
 local ValueLabel = Instance.new("TextLabel")
 ValueLabel.Size = UDim2.new(1, 0, 0, 24)
