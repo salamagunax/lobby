@@ -7,19 +7,10 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
-local inventorySpaceLabel = nil
-
--- ฟังก์ชันค้นหา Label ช่องกระเป๋าแบบปลอดภัย
-local function findInventoryLabel()
-    local success = pcall(function()
-        inventorySpaceLabel = PlayerGui:WaitForChild("inventory", 1)
-            :WaitForChild("mainBackground", 1)
-            :WaitForChild("innerBackground", 1)
-            :WaitForChild("rightSideFrame", 1)
-            :WaitForChild("inventorySpace", 1)
-    end)
-    return success and inventorySpaceLabel ~= nil
-end
+-- เรียกใช้ Module Inventory ของเกมโดยตรง (แม่นยำกว่าการหา TextLabel ใน UI)
+local successInv, invModule = pcall(function()
+    return require(LocalPlayer.PlayerScripts.Ui.inventory)
+end)
 
 local function returnToLobby()
     pcall(function()
@@ -58,7 +49,7 @@ local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, 0, 0, 18)
 TitleLabel.Position = UDim2.new(0, 0, 0, 4)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🛡️ Inventory Guard (== 250)"
+TitleLabel.Text = "🛡️ Inventory Guard (>= 250)"
 TitleLabel.TextColor3 = Color3.fromRGB(150, 150, 180)
 TitleLabel.TextSize = 11
 TitleLabel.Font = Enum.Font.GothamBold
@@ -101,67 +92,59 @@ local ValueLabel = Instance.new("TextLabel")
 ValueLabel.Size = UDim2.new(1, 0, 0, 24)
 ValueLabel.Position = UDim2.new(0, 0, 0, 22)
 ValueLabel.BackgroundTransparency = 1
-ValueLabel.Text = "กำลังค้นหาช่องกระเป๋า..."
-ValueLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
+ValueLabel.Text = "กำลังโหลด..."
+ValueLabel.TextColor3 = Color3.fromRGB(100, 255, 150)
 ValueLabel.TextSize = 13
 ValueLabel.Font = Enum.Font.GothamBold
 ValueLabel.Parent = CounterFrame
 
-local function checkInventory()
-    if not inventorySpaceLabel or not inventorySpaceLabel.Parent then
-        if not findInventoryLabel() then
-            ValueLabel.Text = "กำลังรอเปิดกระเป๋า..."
-            ValueLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
-            return
-        end
+local function getInventoryCount()
+    if not successInv or not invModule then
+        -- ถ้าโหลด module ไม่ได้ ลองเรียกใหม่
+        successInv, invModule = pcall(function()
+            return require(LocalPlayer.PlayerScripts.Ui.inventory)
+        end)
+        if not successInv then return 0 end
     end
 
-    if inventorySpaceLabel and inventorySpaceLabel:IsA("TextLabel") then
-        local text = inventorySpaceLabel.Text
-        ValueLabel.Text = text
-        
-        local numbers = {}
-        for numStr in text:gmatch("%d+") do
-            table.insert(numbers, tonumber(numStr))
-        end
-        
-        if #numbers >= 2 then
-            local currentItems = numbers[1]
-            local maxCapacity = numbers[2]
-            
-            -- เงื่อนไข: ถ้าของเท่ากับ 250 เป๊ะๆ ให้กลับลอบบี้
-            if currentItems == 250 then
-                ValueLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
-                ValueLabel.Text = text .. " (== 250! กลับลอบบี้)"
-                returnToLobby()
-                task.wait(10)
-            else
-                ValueLabel.TextColor3 = Color3.fromRGB(100, 255, 150)
+    local success, myInventory = pcall(function()
+        return invModule.GetPlayerInvy()
+    end)
+    
+    if not success or not myInventory then return 0 end
+
+    local totalCount = 0
+    for catKey, catData in pairs(myInventory) do
+        if type(catData) == "table" then
+            for _, _ in pairs(catData) do
+                totalCount = totalCount + 1
             end
         end
     end
+    return totalCount
 end
 
--- เชื่อมต่อ Event อัปเดตข้อความทันทีเมื่อข้อความในเกมเปลี่ยน
-task.spawn(function()
-    while true do
-        if inventorySpaceLabel and inventorySpaceLabel:IsA("TextLabel") then
-            pcall(function()
-                inventorySpaceLabel:GetPropertyChangedSignal("Text"):Connect(function()
-                    checkInventory()
-                end)
-            end)
-            break
-        end
-        findInventoryLabel()
-        task.wait(1)
+local function checkInventory()
+    local currentItems = getInventoryCount()
+    local maxCapacity = 300 -- ความจุสูงสุดของกระเป๋า
+    
+    ValueLabel.Text = string.format("%d / %d ชิ้น", currentItems, maxCapacity)
+    
+    -- เงื่อนไข: ถ้าของมากกว่าหรือเท่ากับ 250 ให้กลับลอบบี้ทันที
+    if currentItems >= 250 then
+        ValueLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+        ValueLabel.Text = string.format("%d / %d (>= 250! กลับลอบบี้)", currentItems, maxCapacity)
+        returnToLobby()
+        task.wait(10)
+    else
+        ValueLabel.TextColor3 = Color3.fromRGB(100, 255, 150)
     end
-end)
+end
 
--- ลูปเช็คสถานะสม่ำเสมอ ป้องกันหลุดการทำงาน
+-- ลูปเช็คสถานะกระเป๋าแบบเรียลไทม์ทุกๆ 1.5 วินาที
 task.spawn(function()
     while true do
-        task.wait(2)
         checkInventory()
+        task.wait(1.5)
     end
 end)
