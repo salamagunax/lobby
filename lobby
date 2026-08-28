@@ -8,13 +8,18 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 local inventorySpaceLabel = nil
-pcall(function()
-    inventorySpaceLabel = PlayerGui:WaitForChild("inventory", 3)
-        :WaitForChild("mainBackground", 3)
-        :WaitForChild("innerBackground", 3)
-        :WaitForChild("rightSideFrame", 3)
-        :WaitForChild("inventorySpace", 3)
-end)
+
+-- ฟังก์ชันค้นหา Label ช่องกระเป๋าแบบปลอดภัย
+local function findInventoryLabel()
+    local success = pcall(function()
+        inventorySpaceLabel = PlayerGui:WaitForChild("inventory", 1)
+            :WaitForChild("mainBackground", 1)
+            :WaitForChild("innerBackground", 1)
+            :WaitForChild("rightSideFrame", 1)
+            :WaitForChild("inventorySpace", 1)
+    end)
+    return success and inventorySpaceLabel ~= nil
+end
 
 local function returnToLobby()
     pcall(function()
@@ -38,7 +43,6 @@ ScreenGui.Parent = PlayerGui
 
 local CounterFrame = Instance.new("Frame")
 CounterFrame.Size = UDim2.new(0, 220, 0, 55)
--- เปลี่ยนมุมเริ่มต้นมาไว้ที่มุมขวาบน (ปรับตำแหน่งตามชอบได้ตรง Position นี้ครับ)
 CounterFrame.Position = UDim2.new(1, -235, 0, 15)
 CounterFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 26)
 CounterFrame.BorderSizePixel = 0
@@ -60,7 +64,7 @@ TitleLabel.TextSize = 11
 TitleLabel.Font = Enum.Font.GothamBold
 TitleLabel.Parent = CounterFrame
 
--- เพิ่มระบบลาก UI (Draggable) ผ่าน TitleLabel
+-- ระบบลาก UI (Draggable)
 local dragging, dragInput, dragStart, startPos
 TitleLabel.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -97,13 +101,21 @@ local ValueLabel = Instance.new("TextLabel")
 ValueLabel.Size = UDim2.new(1, 0, 0, 24)
 ValueLabel.Position = UDim2.new(0, 0, 0, 22)
 ValueLabel.BackgroundTransparency = 1
-ValueLabel.Text = "กำลังโหลด..."
-ValueLabel.TextColor3 = Color3.fromRGB(100, 255, 150)
+ValueLabel.Text = "กำลังค้นหาช่องกระเป๋า..."
+ValueLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
 ValueLabel.TextSize = 13
 ValueLabel.Font = Enum.Font.GothamBold
 ValueLabel.Parent = CounterFrame
 
 local function checkInventory()
+    if not inventorySpaceLabel or not inventorySpaceLabel.Parent then
+        if not findInventoryLabel() then
+            ValueLabel.Text = "กำลังรอเปิดกระเป๋า..."
+            ValueLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
+            return
+        end
+    end
+
     if inventorySpaceLabel and inventorySpaceLabel:IsA("TextLabel") then
         local text = inventorySpaceLabel.Text
         ValueLabel.Text = text
@@ -130,16 +142,26 @@ local function checkInventory()
     end
 end
 
-if inventorySpaceLabel and inventorySpaceLabel:IsA("TextLabel") then
-    checkInventory()
-    inventorySpaceLabel:GetPropertyChangedSignal("Text"):Connect(function()
-        checkInventory()
-    end)
-end
-
+-- เชื่อมต่อ Event อัปเดตข้อความทันทีเมื่อข้อความในเกมเปลี่ยน
 task.spawn(function()
     while true do
-        task.wait(3)
+        if inventorySpaceLabel and inventorySpaceLabel:IsA("TextLabel") then
+            pcall(function()
+                inventorySpaceLabel:GetPropertyChangedSignal("Text"):Connect(function()
+                    checkInventory()
+                end)
+            end)
+            break
+        end
+        findInventoryLabel()
+        task.wait(1)
+    end
+end)
+
+-- ลูปเช็คสถานะสม่ำเสมอ ป้องกันหลุดการทำงาน
+task.spawn(function()
+    while true do
+        task.wait(2)
         checkInventory()
     end
 end)
