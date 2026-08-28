@@ -1,0 +1,110 @@
+-- =============================================
+-- Services & Target Path
+-- =============================================
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+local inventorySpaceLabel = nil
+pcall(function()
+    inventorySpaceLabel = PlayerGui:WaitForChild("inventory", 3)
+        :WaitForChild("mainBackground", 3)
+        :WaitForChild("innerBackground", 3)
+        :WaitForChild("rightSideFrame", 3)
+        :WaitForChild("inventorySpace", 3)
+end)
+
+local function returnToLobby()
+    pcall(function()
+        ReplicatedStorage.remotes.reloadInvy:InvokeServer()
+    end)
+    task.wait(0.2)
+    pcall(function()
+        ReplicatedStorage.remotes.ReturnToLobbyEvent:FireServer()
+    end)
+end
+
+if PlayerGui:FindFirstChild("InventoryGuardGUI") then
+    PlayerGui:FindFirstChild("InventoryGuardGUI"):Destroy()
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "InventoryGuardGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = PlayerGui
+
+local CounterFrame = Instance.new("Frame")
+CounterFrame.Size = UDim2.new(0, 220, 0, 55)
+CounterFrame.Position = UDim2.new(0.5, -110, 0, 10)
+CounterFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 26)
+CounterFrame.BorderSizePixel = 0
+CounterFrame.Parent = ScreenGui
+
+Instance.new("UICorner", CounterFrame).CornerRadius = UDim.new(0, 8)
+local Stroke = Instance.new("UIStroke")
+Stroke.Color = Color3.fromRGB(100, 200, 255)
+Stroke.Thickness = 1.5
+Stroke.Parent = CounterFrame
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, 0, 0, 18)
+TitleLabel.Position = UDim2.new(0, 0, 0, 4)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "🛡️ Inventory Guard (== 250)"
+TitleLabel.TextColor3 = Color3.fromRGB(150, 150, 180)
+TitleLabel.TextSize = 11
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.Parent = CounterFrame
+
+local ValueLabel = Instance.new("TextLabel")
+ValueLabel.Size = UDim2.new(1, 0, 0, 24)
+ValueLabel.Position = UDim2.new(0, 0, 0, 22)
+ValueLabel.BackgroundTransparency = 1
+ValueLabel.Text = "กำลังโหลด..."
+ValueLabel.TextColor3 = Color3.fromRGB(100, 255, 150)
+ValueLabel.TextSize = 13
+ValueLabel.Font = Enum.Font.GothamBold
+ValueLabel.Parent = CounterFrame
+
+local function checkInventory()
+    if inventorySpaceLabel and inventorySpaceLabel:IsA("TextLabel") then
+        local text = inventorySpaceLabel.Text
+        ValueLabel.Text = text
+        
+        local numbers = {}
+        for numStr in text:gmatch("%d+") do
+            table.insert(numbers, tonumber(numStr))
+        end
+        
+        if #numbers >= 2 then
+            local currentItems = numbers[1]
+            local maxCapacity = numbers[2]
+            
+            -- เงื่อนไข: ถ้าของเท่ากับ 250 เป๊ะๆ ให้กลับลอบบี้
+            if currentItems == 250 then
+                ValueLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+                ValueLabel.Text = text .. " (== 250! กลับลอบบี้)"
+                returnToLobby()
+                task.wait(10)
+            else
+                ValueLabel.TextColor3 = Color3.fromRGB(100, 255, 150)
+            end
+        end
+    end
+end
+
+if inventorySpaceLabel and inventorySpaceLabel:IsA("TextLabel") then
+    checkInventory()
+    inventorySpaceLabel:GetPropertyChangedSignal("Text"):Connect(function()
+        checkInventory()
+    end)
+end
+
+task.spawn(function()
+    while true do
+        task.wait(3)
+        checkInventory()
+    end
+end)
