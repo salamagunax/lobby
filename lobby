@@ -7,12 +7,12 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- เรียกใช้ Module Inventory ของเกมโดยตรง (แม่นยำกว่าการหา TextLabel ใน UI)
 local successInv, invModule = pcall(function()
     return require(LocalPlayer.PlayerScripts.Ui.inventory)
 end)
 
 local function returnToLobby()
+    print("[Inventory Guard]: กำลังส่งตัวกลับลอบบี้...")
     pcall(function()
         ReplicatedStorage.remotes.reloadInvy:InvokeServer()
     end)
@@ -33,7 +33,7 @@ ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = PlayerGui
 
 local CounterFrame = Instance.new("Frame")
-CounterFrame.Size = UDim2.new(0, 220, 0, 55)
+CounterFrame.Size = UDim2.new(0, 220, 0, 60)
 CounterFrame.Position = UDim2.new(1, -235, 0, 15)
 CounterFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 26)
 CounterFrame.BorderSizePixel = 0
@@ -89,18 +89,27 @@ UserInputService.InputChanged:Connect(function(input)
 end)
 
 local ValueLabel = Instance.new("TextLabel")
-ValueLabel.Size = UDim2.new(1, 0, 0, 24)
-ValueLabel.Position = UDim2.new(0, 0, 0, 22)
+ValueLabel.Size = UDim2.new(1, 0, 0, 18)
+ValueLabel.Position = UDim2.new(0, 0, 0, 20)
 ValueLabel.BackgroundTransparency = 1
 ValueLabel.Text = "กำลังโหลด..."
 ValueLabel.TextColor3 = Color3.fromRGB(100, 255, 150)
-ValueLabel.TextSize = 13
+ValueLabel.TextSize = 12
 ValueLabel.Font = Enum.Font.GothamBold
 ValueLabel.Parent = CounterFrame
 
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, 0, 0, 18)
+StatusLabel.Position = UDim2.new(0, 0, 0, 38)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "สถานะ: กำลังตรวจสอบ..."
+StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+StatusLabel.TextSize = 11
+StatusLabel.Font = Enum.Font.GothamBold
+StatusLabel.Parent = CounterFrame
+
 local function getInventoryCount()
     if not successInv or not invModule then
-        -- ถ้าโหลด module ไม่ได้ ลองเรียกใหม่
         successInv, invModule = pcall(function()
             return require(LocalPlayer.PlayerScripts.Ui.inventory)
         end)
@@ -126,25 +135,26 @@ end
 
 local function checkInventory()
     local currentItems = getInventoryCount()
-    local maxCapacity = 300 -- ความจุสูงสุดของกระเป๋า
+    local maxCapacity = 300
     
     ValueLabel.Text = string.format("%d / %d ชิ้น", currentItems, maxCapacity)
     
-    -- เงื่อนไข: ถ้าของมากกว่าหรือเท่ากับ 250 ให้กลับลอบบี้ทันที
     if currentItems >= 250 then
-        ValueLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
-        ValueLabel.Text = string.format("%d / %d (>= 250! กลับลอบบี้)", currentItems, maxCapacity)
+        StatusLabel.Text = "สถานะ: 🚀 กำลังกลับลอบบี้..."
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+        print("[Inventory Guard]: ของถึง " .. currentItems .. " ชิ้นแล้ว (>= 250) -> สั่งกลับลอบบี้ทันที!")
         returnToLobby()
-        task.wait(10)
+        task.wait(10) -- หน่วงเวลาไม่ให้ส่งซ้ำรัวๆ ระหว่างย้ายแมพ
     else
-        ValueLabel.TextColor3 = Color3.fromRGB(100, 255, 150)
+        StatusLabel.Text = "สถานะ: ⏳ ยังไม่พร้อม (< 250)"
+        StatusLabel.TextColor3 = Color3.fromRGB(100, 255, 150)
+        print("[Inventory Guard]: ของมี " .. currentItems .. " ชิ้น -> ยังไม่ถึงเกณฑ์ [ยังไม่พร้อม]")
     end
 end
 
--- ลูปเช็คสถานะกระเป๋าแบบเรียลไทม์ทุกๆ 1.5 วินาที
 task.spawn(function()
     while true do
         checkInventory()
-        task.wait(1.5)
+        task.wait(2)
     end
 end)
