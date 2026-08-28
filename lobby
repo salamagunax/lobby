@@ -1,163 +1,110 @@
+-- =============================================
+-- Services & Target Path
+-- =============================================
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local CoreGui = game:GetService("CoreGui")
-local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
-local guiName = "WinterOutpost_StrictCheck"
-local uiParent = pcall(function() return CoreGui.Name end) and CoreGui or LocalPlayer:WaitForChild("PlayerGui")
-if uiParent:FindFirstChild(guiName) then uiParent[guiName]:Destroy() end
-
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = guiName
-ScreenGui.Parent = uiParent
-
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 320, 0, 220)
-MainFrame.Position = UDim2.new(0.5, -160, 0.5, -110)
-MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-MainFrame.BorderSizePixel = 0
-MainFrame.Parent = ScreenGui
-Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
-
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 32)
-Title.BackgroundTransparency = 1
-Title.Text = "❄️ Winter Outpost [Strict 0-9 Check]"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 11
-Title.Font = Enum.Font.GothamBold
-Title.Parent = MainFrame
-
--- ฟังก์ชันลาก UI
-local dragging, dragInput, dragStart, startPos
-Title.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true; dragStart = input.Position; startPos = MainFrame.Position
-        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
-    end
-end)
-Title.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        local delta = input.Position - dragStart
-        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
+local inventorySpaceLabel = nil
+pcall(function()
+    inventorySpaceLabel = PlayerGui:WaitForChild("inventory", 3)
+        :WaitForChild("mainBackground", 3)
+        :WaitForChild("innerBackground", 3)
+        :WaitForChild("rightSideFrame", 3)
+        :WaitForChild("inventorySpace", 3)
 end)
 
-local StatusLabel = Instance.new("TextLabel")
-StatusLabel.Size = UDim2.new(1, -16, 0, 45)
-StatusLabel.Position = UDim2.new(0, 8, 0, 35)
-StatusLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
-StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 80)
-StatusLabel.TextSize = 10
-StatusLabel.Font = Enum.Font.Gotham
-StatusLabel.TextWrapped = true
-StatusLabel.Text = "Status: ตั้งค่าเงื่อนไขใหม่ [ต้องมี 0-9 ชิ้น ถึงจะจอย]"
-StatusLabel.Parent = MainFrame
-Instance.new("UICorner", StatusLabel).CornerRadius = UDim.new(0, 6)
-
-local ForceStartBtn = Instance.new("TextButton")
-ForceStartBtn.Size = UDim2.new(1, -16, 0, 32)
-ForceStartBtn.Position = UDim2.new(0, 8, 0, 90)
-ForceStartBtn.BackgroundColor3 = Color3.fromRGB(180, 60, 40)
-ForceStartBtn.Text = "⚔️ FORCE START DUNGEON"
-ForceStartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-ForceStartBtn.Font = Enum.Font.GothamBold
-ForceStartBtn.TextSize = 11
-ForceStartBtn.Parent = MainFrame
-Instance.new("UICorner", ForceStartBtn).CornerRadius = UDim.new(0, 6)
-
-local AutoGuardBtn = Instance.new("TextButton")
-AutoGuardBtn.Size = UDim2.new(1, -16, 0, 32)
-AutoGuardBtn.Position = UDim2.new(0, 8, 0, 130)
-AutoGuardBtn.BackgroundColor3 = Color3.fromRGB(40, 140, 70)
-AutoGuardBtn.Text = "🔄 AUTO GUARD: CONDITIONAL"
-AutoGuardBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-AutoGuardBtn.Font = Enum.Font.GothamBold
-AutoGuardBtn.TextSize = 11
-AutoGuardBtn.Parent = MainFrame
-Instance.new("UICorner", AutoGuardBtn).CornerRadius = UDim.new(0, 6)
-
--- ฟังก์ชันเช็คจำนวนของสมมติจาก UI หรือกระเป๋าจริง
-local function GetCurrentItemCount()
-    -- ตรงนี้พยายามดึงค่าตัวเลขจาก UI เดิม หรือนับจากช่องเก็บของจริง
-    -- เนื่องจากปัจจุบันมี 59/300 ฟังก์ชันนี้จะรีเทิร์นค่าปัจจุบันออกมา
-    return 59 -- ตัวอย่างจำลองตามที่คุณแจ้งว่าตอนนี้คือ 59
+local function returnToLobby()
+    pcall(function()
+        ReplicatedStorage.remotes.reloadInvy:InvokeServer()
+    end)
+    task.wait(0.2)
+    pcall(function()
+        ReplicatedStorage.remotes.ReturnToLobbyEvent:FireServer()
+    end)
 end
 
-ForceStartBtn.MouseButton1Click:Connect(function()
-    local currentCount = GetCurrentItemCount()
-    if currentCount < 10 then
-        StatusLabel.Text = "✅ ของในกระเป๋า ("..currentCount.."/300) ผ่านเกณฑ์ (< 10) กำลังจอย..."
-        pcall(function()
-            for _, remote in ipairs(ReplicatedStorage:GetDescendants()) do
-                if remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction") then
-                    local name = remote.Name:lower()
-                    if name:find("dungeon") or name:find("room") or name:find("start") or name:find("outpost") then
-                        pcall(function()
-                            if remote:IsA("RemoteEvent") then
-                                remote:FireServer("Winter Outpost", "Nightmare")
-                            else
-                                remote:InvokeServer("Winter Outpost", "Nightmare")
-                            end
-                        end)
-                    end
-                end
-            end
-        end)
-    else
-        StatusLabel.Text = "⛔ ของมี " .. currentCount .. "/300 ชิ้น (เกิน 10 ชิ้น) ไม่อนุญาตให้จอยตามเงื่อนไข!"
-    end
-end)
+if PlayerGui:FindFirstChild("InventoryGuardGUI") then
+    PlayerGui:FindFirstChild("InventoryGuardGUI"):Destroy()
+end
 
-local AutoRunning = false
-AutoGuardBtn.MouseButton1Click:Connect(function()
-    AutoRunning = not AutoRunning
-    if AutoRunning then
-        AutoGuardBtn.BackgroundColor3 = Color3.fromRGB(180, 60, 60)
-        AutoGuardBtn.Text = "⏹ AUTO GUARD: STOP"
-        StatusLabel.Text = "🟢 เริ่มระบบออโต้ [เช็คเงื่อนไข 0-9 ชิ้น]"
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "InventoryGuardGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = PlayerGui
+
+local CounterFrame = Instance.new("Frame")
+CounterFrame.Size = UDim2.new(0, 220, 0, 55)
+CounterFrame.Position = UDim2.new(0.5, -110, 0, 10)
+CounterFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 26)
+CounterFrame.BorderSizePixel = 0
+CounterFrame.Parent = ScreenGui
+
+Instance.new("UICorner", CounterFrame).CornerRadius = UDim.new(0, 8)
+local Stroke = Instance.new("UIStroke")
+Stroke.Color = Color3.fromRGB(100, 200, 255)
+Stroke.Thickness = 1.5
+Stroke.Parent = CounterFrame
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, 0, 0, 18)
+TitleLabel.Position = UDim2.new(0, 0, 0, 4)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "🛡️ Inventory Guard (== 250)"
+TitleLabel.TextColor3 = Color3.fromRGB(150, 150, 180)
+TitleLabel.TextSize = 11
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.Parent = CounterFrame
+
+local ValueLabel = Instance.new("TextLabel")
+ValueLabel.Size = UDim2.new(1, 0, 0, 24)
+ValueLabel.Position = UDim2.new(0, 0, 0, 22)
+ValueLabel.BackgroundTransparency = 1
+ValueLabel.Text = "กำลังโหลด..."
+ValueLabel.TextColor3 = Color3.fromRGB(100, 255, 150)
+ValueLabel.TextSize = 13
+ValueLabel.Font = Enum.Font.GothamBold
+ValueLabel.Parent = CounterFrame
+
+local function checkInventory()
+    if inventorySpaceLabel and inventorySpaceLabel:IsA("TextLabel") then
+        local text = inventorySpaceLabel.Text
+        ValueLabel.Text = text
         
-        task.spawn(function()
-            while AutoRunning do
-                local currentCount = GetCurrentItemCount()
-                if currentCount < 10 then
-                    StatusLabel.Text = "✅ ของผ่านเกณฑ์ ("..currentCount.."/300) กำลังลุย..."
-                    pcall(function()
-                        for _, remote in ipairs(ReplicatedStorage:GetDescendants()) do
-                            if remote:IsA("RemoteEvent") and (remote.Name:lower():find("dungeon") or remote.Name:lower():find("start")) then
-                                remote:FireServer()
-                            end
-                        end
-                    end)
-                else
-                    StatusLabel.Text = "⏳ จอด่านรอ: ของมี " .. currentCount .. "/300 (ต้องเหลือน้อยกว่า 10 ถึงจะจอย)"
-                end
-                task.wait(3)
+        local numbers = {}
+        for numStr in text:gmatch("%d+") do
+            table.insert(numbers, tonumber(numStr))
+        end
+        
+        if #numbers >= 2 then
+            local currentItems = numbers[1]
+            local maxCapacity = numbers[2]
+            
+            -- เงื่อนไข: ถ้าของเท่ากับ 250 เป๊ะๆ ให้กลับลอบบี้
+            if currentItems == 250 then
+                ValueLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+                ValueLabel.Text = text .. " (== 250! กลับลอบบี้)"
+                returnToLobby()
+                task.wait(10)
+            else
+                ValueLabel.TextColor3 = Color3.fromRGB(100, 255, 150)
             end
-        end)
-    else
-        AutoGuardBtn.BackgroundColor3 = Color3.fromRGB(40, 140, 70)
-        AutoGuardBtn.Text = "🔄 AUTO GUARD: CONDITIONAL"
-        StatusLabel.Text = "⏹ หยุดระบบออโต้แล้ว"
+        end
     end
-end)
+end
 
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(1, -16, 0, 26)
-CloseBtn.Position = UDim2.new(0, 8, 0, 175)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 80)
-CloseBtn.Text = "❌ ปิดเมนู"
-CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.TextSize = 10
-CloseBtn.Parent = MainFrame
-Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
+if inventorySpaceLabel and inventorySpaceLabel:IsA("TextLabel") then
+    checkInventory()
+    inventorySpaceLabel:GetPropertyChangedSignal("Text"):Connect(function()
+        checkInventory()
+    end)
+end
 
-CloseBtn.MouseButton1Click:Connect(function()
-    AutoRunning = false
-    ScreenGui:Destroy()
+task.spawn(function()
+    while true do
+        task.wait(3)
+        checkInventory()
+    end
 end)
